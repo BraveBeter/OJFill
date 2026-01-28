@@ -31,12 +31,8 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
 
     return config
 
-
-def crawl_all_problems(config: Dict) -> List[Problem]:
-    """爬取所有平台的未解决题目"""
-    all_problems = []
-    platforms_config = config.get('platforms', {})
-
+def crawl_codeforces(platforms_config:Dict) -> List[Problem]:
+    problems = []
     # Codeforces
     if platforms_config.get('codeforces', {}).get('enabled', False):
         print("\n[Codeforces] 开始爬取...")
@@ -52,11 +48,13 @@ def crawl_all_problems(config: Dict) -> List[Problem]:
                     include_gym=cf_config.get('include_gym', True)
                 )
                 problems = crawler.get_unsolved_problems()
-                all_problems.extend(problems)
                 print(f"  成功: 找到 {len(problems)} 道未解决题目")
             except Exception as e:
                 print(f"  错误: {e}")
+    return problems
 
+def crawl_atcoder(platforms_config:Dict) -> List[Problem]:
+    problems = []
     # AtCoder
     if platforms_config.get('atcoder', {}).get('enabled', False):
         print("\n[AtCoder] 开始爬取...")
@@ -72,11 +70,13 @@ def crawl_all_problems(config: Dict) -> List[Problem]:
                     contest_only=at_config.get('contest_only', True)
                 )
                 problems = crawler.get_unsolved_problems()
-                all_problems.extend(problems)
                 print(f"  成功: 找到 {len(problems)} 道未解决题目")
             except Exception as e:
                 print(f"  错误: {e}")
+    return problems
 
+def crawl_leetcode(platforms_config:Dict) -> List[Problem]:
+    problems = []
     # LeetCode
     if platforms_config.get('leetcode', {}).get('enabled', False):
         print("\n[LeetCode] 开始爬取...")
@@ -89,11 +89,19 @@ def crawl_all_problems(config: Dict) -> List[Problem]:
             try:
                 crawler = LeetCodeCrawler(cookies=cookies)
                 problems = crawler.get_all_attempted_problems()
-                all_problems.extend(problems)
                 print(f"  成功: 找到 {len(problems)} 道未解决题目")
             except Exception as e:
                 print(f"  错误: {e}")
 
+    return problems
+
+def crawl_all_problems(config: Dict) -> List[Problem]:
+    """爬取所有平台的未解决题目"""
+    all_problems = []
+    platforms_config = config.get('platforms', {})
+    all_problems.extend(crawl_codeforces(platforms_config))
+    all_problems.extend(crawl_atcoder(platforms_config))
+    all_problems.extend(crawl_leetcode(platforms_config))
     return all_problems
 
 
@@ -171,7 +179,6 @@ def main():
         print("\n未找到任何未解决题目，程序退出")
         return
 
-    problems = problems[::-1]
     # 获取Clist rating
     fetch_ratings(problems, config)
 
