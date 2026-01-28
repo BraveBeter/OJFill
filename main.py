@@ -120,10 +120,6 @@ def fetch_ratings(problems: List[Problem], config: Dict) -> None:
         fetcher = ClistFetcher(api_key=api_key)
         fetcher.fetch_ratings_batch(problems)
 
-        # 统计
-        rated = sum(1 for p in problems if p.clist_rating is not None)
-        print(f"  成功: {rated}/{len(problems)} 道题目获取到rating")
-
     except Exception as e:
         print(f"  错误: {e}")
 
