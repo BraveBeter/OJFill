@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
 import requests
-import time
-from typing import List, Dict, Set
+from typing import List, Dict
 from models.problem import Problem
 
 
