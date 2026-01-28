@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import requests
 import time
 from typing import List, Dict, Set
@@ -35,11 +37,19 @@ class AtCoderCrawler:
             提交记录列表
         """
         url = f"{self.API_BASE}/user/submissions"
-        params = {'user': self.handle}
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=730)
+        params = {
+            'user': self.handle,
+            'from_second': int(start_time.timestamp()),
+            'to_second': int(end_time.timestamp()),
+        }
 
         try:
             response = self.session.get(url, params=params, timeout=15)
             response.raise_for_status()
+            print("所有的atc提交题目:", response.json())
+
             return response.json()
 
         except requests.RequestException as e:
@@ -59,6 +69,8 @@ class AtCoderCrawler:
             response.raise_for_status()
             problems = response.json()
 
+
+            print("所有的atc题目题单长度:", len(problems))
             # 构建problem_id到problem_info的映射
             return {p['id']: p for p in problems}
 
