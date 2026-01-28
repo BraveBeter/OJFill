@@ -1,0 +1,48 @@
+# 算法竞赛补题收集系统配置文件示例
+# 请复制此文件为 config.yaml 并填入您的真实信息
+
+# 平台配置
+platforms:
+  codeforces:
+    enabled: true
+    handle: "your_cf_username"  # 请填入您的Codeforces用户名
+    include_gym: true  # 是否包含Gym题目
+
+  atcoder:
+    enabled: true
+    handle: "your_atcoder_username"  # 请填入您的AtCoder用户名
+    contest_only: true  # 是否只爬取比赛题目
+
+  leetcode:
+    enabled: true
+    # 请填入您的LeetCode cookies
+    # 从浏览器开发者工具获取（F12 -> Application -> Cookies）
+    cookies:
+      LEETCODE_SESSION: "your_leetcode_session_token"
+      csrftoken: "your_csrf_token"
+
+# Clist配置
+clist:
+  api_key: "your_clist_api_key"  # 请填入您的Clist API Key
+
+# 导出配置
+export:
+  output_dir: "./output"
+  json_file: "problems.json"
+  csv_file: "problems.csv"
+  markdown_file: "README.md"
+  formats:
+    - json
+    - csv
+    - markdown
+
+# 排序配置
+sort:
+  platform_priority:
+    codeforces: 1
+    atcoder: 2
+    leetcode: 3
+
+# 日志配置
+logging:
+  level: "INFO"
