@@ -47,7 +47,7 @@ class AtCoderCrawler:
         try:
             response = self.session.get(url, params=params, timeout=15)
             response.raise_for_status()
-            print("所有的atc提交题目:", response.json())
+            # print("所有的atc提交题目:", response.json())
 
             return response.json()
 
@@ -69,7 +69,7 @@ class AtCoderCrawler:
             problems = response.json()
 
 
-            print("所有的atc题目题单长度:", len(problems))
+            # print("所有的atc题目题单长度:", len(problems))
             # 构建problem_id到problem_info的映射
             return {p['id']: p for p in problems}
 
