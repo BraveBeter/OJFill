@@ -124,3 +124,67 @@ class AtCoderCrawler:
                 unsolved.append(problem)
 
         return unsolved
+
+    def get_contest_unattempted_problems(self) -> List[Problem]:
+        """
+        获取用户参加过的比赛中未尝试的题目
+
+        Returns:
+            未尝试题目列表
+        """
+        print("  正在获取比赛未尝试的题目...")
+
+        # 获取用户的所有提交记录
+        submissions = self.fetch_submissions()
+
+        # 构建已尝试题目的集合
+        attempted_problems = set()
+        for sub in submissions:
+            problem_id = sub.get('problem_id')
+            if problem_id:
+                attempted_problems.add(problem_id)
+
+        # 获取所有题目和比赛信息
+        problems_map = self.fetch_problems_map()
+
+        # 提取用户参加过的比赛
+        # 从提交记录中获取用户参加的比赛
+        contest_ids = set()
+        for problem_id in attempted_problems:
+            problem_info = problems_map.get(problem_id, {})
+            contest_id = problem_info.get('contest_id', '')
+            # 过滤掉 practice 题
+            if contest_id and 'practice' not in contest_id.lower():
+                contest_ids.add(contest_id)
+
+        print(f"  找到 {len(contest_ids)} 场参加过的比赛")
+
+        # 获取每场比赛的题目，筛选出未尝试的
+        unattempted = []
+        for problem_id, problem_info in problems_map.items():
+            contest_id = problem_info.get('contest_id', '')
+
+            # 如果只爬比赛题，过滤掉practice题
+            if self.contest_only:
+                if 'practice' in contest_id.lower():
+                    continue
+
+            # 只检查用户参加过的比赛
+            if contest_id not in contest_ids:
+                continue
+
+            # 如果这个题目没有被尝试过
+            if problem_id not in attempted_problems:
+                title = problem_info.get('title', '')
+                problem_obj = Problem(
+                    platform='atcoder',
+                    contest_id=contest_id,
+                    problem_index=problem_id,
+                    title=title
+                )
+                # 覆盖URL以使用正确的problem_id
+                problem_obj.url = f"https://atcoder.jp/contests/{contest_id}/tasks/{problem_id}"
+                unattempted.append(problem_obj)
+
+        print(f"  找到 {len(unattempted)} 道比赛未尝试的题目")
+        return unattempted

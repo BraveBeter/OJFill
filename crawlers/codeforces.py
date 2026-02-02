@@ -132,3 +132,111 @@ class CodeforcesCrawler:
         except Exception as e:
             print(f"获取题目详情失败: {e}")
             return {}
+
+    def fetch_user_contests(self) -> List[Dict]:
+        """
+        获取用户参加过的比赛列表
+        Returns:
+            比赛列表
+        """
+        url = f"{self.API_BASE}/user.rating"
+        params = {'handle': self.handle}
+
+        try:
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if data['status'] != 'OK':
+                return []
+
+            return data['result']
+
+        except requests.RequestException as e:
+            raise Exception(f"获取用户比赛列表失败: {e}")
+
+    def fetch_contest_problems(self, contest_id: int) -> List[Dict]:
+        """
+        获取指定比赛的题目列表
+
+        Args:
+            contest_id: 比赛ID
+
+        Returns:
+            题目列表
+        """
+        url = f"{self.API_BASE}/contest.standings"
+        params = {
+            'contestId': contest_id,
+            'showUnofficial': False
+        }
+
+        try:
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if data['status'] != 'OK':
+                return []
+
+            # 获取题目列表
+            problems = data['result'].get('problems', [])
+            return problems
+
+        except requests.RequestException as e:
+            print(f"获取比赛 {contest_id} 的题目列表失败: {e}")
+            return []
+
+    def get_contest_unattempted_problems(self) -> List[Problem]:
+        """
+        获取用户参加过的比赛中未尝试的题目
+        Returns:
+            未尝试题目列表
+        """
+        print("  正在获取比赛未尝试的题目...")
+
+        # 获取用户的所有提交记录
+        submissions = self.fetch_submissions()
+
+        # 构建已尝试题目的集合 {(contest_id, problem_index)}
+        attempted_problems = set()
+        for sub in submissions:
+            problem = sub.get('problem', {})
+            contest_id = problem.get('contestId')
+            problem_index = problem.get('index')
+            if contest_id and problem_index:
+                attempted_problems.add((contest_id, problem_index))
+
+        # 获取用户参加的比赛列表
+        contests = self.fetch_user_contests()
+        print(f"  找到 {len(contests)} 场参加过的比赛")
+
+        # 获取每场比赛的题目，筛选出未尝试的
+        unattempted = []
+        for contest in contests:
+            contest_id = contest.get('contestId')
+
+            # 跳过 Gym（如果设置了不包含Gym）
+            if not self.include_gym and contest_id >= 100000:
+                continue
+
+            # 获取比赛的题目列表
+            problems = self.fetch_contest_problems(contest_id)
+
+            for problem in problems:
+                problem_index = problem.get('index')
+                key = (contest_id, problem_index)
+
+                # 如果这个题目没有被尝试过
+                if key not in attempted_problems:
+                    title = problem.get('name', '')
+                    problem_obj = Problem(
+                        platform='codeforces',
+                        contest_id=str(contest_id),
+                        problem_index=problem_index,
+                        title=title
+                    )
+                    unattempted.append(problem_obj)
+
+        print(f"  找到 {len(unattempted)} 道比赛未尝试的题目")
+        return unattempted
