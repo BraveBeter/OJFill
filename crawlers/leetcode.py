@@ -270,49 +270,8 @@ class LeetCodeCrawler:
 
         raise Exception(f"REST API 获取失败: {last_error}")
 
-    def fetch_solved_problems(self) -> set[str]:
-        # 复用 fetch_submissions 的逻辑来获取已解决题目（简单版）
-        submissions = self.fetch_submissions()
-        solved = set()
-        for sub in submissions:
-            if sub.get('status') == 'ACCEPTED':
-                solved.add(sub.get('titleSlug'))
-        return solved
 
     def get_unsolved_problems(self) -> List[Problem]:
-        submissions = self.fetch_submissions()
-
-        # 按题目分组
-        problem_submissions: Dict[str, List[Dict]] = {}
-        for sub in submissions:
-            title_slug = sub.get('titleSlug')
-            if title_slug not in problem_submissions:
-                problem_submissions[title_slug] = []
-            problem_submissions[title_slug].append(sub)
-
-        unsolved = []
-        for title_slug, subs in problem_submissions.items():
-            # 检查该题是否在这些提交中被 AC 过
-            has_ac = any(sub.get('status') == 'ACCEPTED' for sub in subs)
-
-            if not has_ac:
-                title = subs[0].get('title', '')
-                # 构造标准链接
-                url = f"https://leetcode.cn/problems/{title_slug}/"
-
-                problem = Problem(
-                    platform='leetcode',
-                    contest_id=title_slug,
-                    problem_index='',
-                    title=title,
-                    url=url
-                )
-                unsolved.append(problem)
-
-        return unsolved
-
-
-    def get_all_attempted_problems(self) -> List[Problem]:
         """
         获取所有尝试过但未解决的题目
         Returns:
