@@ -63,6 +63,7 @@ platforms:
     enabled: true
     handle: "your_username"  # 您的Codeforces用户名
     include_gym: true        # 是否包含Gym题目
+    include_contest_unattempted: false  # 是否包含比赛中未尝试的题目（新功能）
 ```
 
 ### AtCoder 配置
@@ -72,6 +73,7 @@ platforms:
     enabled: true
     handle: "your_username"  # 您的AtCoder用户名
     contest_only: true       # 是否只爬取比赛题目
+    include_contest_unattempted: false  # 是否包含比赛中未尝试的题目（新功能）
 ```
 
 ### LeetCode 配置
@@ -79,6 +81,7 @@ platforms:
 ```yaml
   leetcode:
     enabled: true
+    include_contest_unattempted: false  # 是否包含比赛中未尝试的题目（新功能）
     cookies:
       LEETCODE_SESSION: "your_session_token"
       csrftoken: "your_csrf_token"
