@@ -23,7 +23,11 @@ class Problem:
             if not self.url:
                 self.url = f"https://atcoder.jp/contests/{self.contest_id}/tasks/{self.problem_index}"
         elif self.platform == "leetcode":
-            self.problem_id = f"LC-{self.contest_id}"
+            # 对于 LeetCode，如果 problem_index 有值（通常是 titleSlug），则使用它确保唯一性
+            if self.problem_index:
+                self.problem_id = f"LC-{self.problem_index}"
+            else:
+                self.problem_id = f"LC-{self.contest_id}"
             if not self.url:
                 self.url = f"https://leetcode.com/problems/{self.contest_id}/"
         else:

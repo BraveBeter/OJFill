@@ -270,49 +270,8 @@ class LeetCodeCrawler:
 
         raise Exception(f"REST API 获取失败: {last_error}")
 
-    def fetch_solved_problems(self) -> set[str]:
-        # 复用 fetch_submissions 的逻辑来获取已解决题目（简单版）
-        submissions = self.fetch_submissions()
-        solved = set()
-        for sub in submissions:
-            if sub.get('status') == 'ACCEPTED':
-                solved.add(sub.get('titleSlug'))
-        return solved
 
     def get_unsolved_problems(self) -> List[Problem]:
-        submissions = self.fetch_submissions()
-
-        # 按题目分组
-        problem_submissions: Dict[str, List[Dict]] = {}
-        for sub in submissions:
-            title_slug = sub.get('titleSlug')
-            if title_slug not in problem_submissions:
-                problem_submissions[title_slug] = []
-            problem_submissions[title_slug].append(sub)
-
-        unsolved = []
-        for title_slug, subs in problem_submissions.items():
-            # 检查该题是否在这些提交中被 AC 过
-            has_ac = any(sub.get('status') == 'ACCEPTED' for sub in subs)
-
-            if not has_ac:
-                title = subs[0].get('title', '')
-                # 构造标准链接
-                url = f"https://leetcode.cn/problems/{title_slug}/"
-
-                problem = Problem(
-                    platform='leetcode',
-                    contest_id=title_slug,
-                    problem_index='',
-                    title=title,
-                    url=url
-                )
-                unsolved.append(problem)
-
-        return unsolved
-
-
-    def get_all_attempted_problems(self) -> List[Problem]:
         """
         获取所有尝试过但未解决的题目
         Returns:
@@ -353,3 +312,252 @@ class LeetCodeCrawler:
                 unsolved.append(problem)
 
         return unsolved
+
+    def fetch_all_contests(self) -> List[Dict]:
+        """
+        获取所有比赛列表（通过 GraphQL）
+
+        Returns:
+            比赛列表
+        """
+        # 使用 GraphQL allContests 查询
+        query = """
+        query getAllContests {
+            allContests {
+                title
+                titleSlug
+                startTime
+                duration
+            }
+        }
+        """
+
+        # 尝试多个 GraphQL 端点
+        graphql_urls = [
+            "https://leetcode.cn/graphql",
+            "https://leetcode.com/graphql",
+        ]
+
+        for graphql_url in graphql_urls:
+            try:
+                print(f"  尝试 GraphQL API: {graphql_url}")
+                response = self.session.post(
+                    graphql_url,
+                    json={'query': query, 'variables': {}},
+                    timeout_seconds=15
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'errors' not in data:
+                        contests = data.get('data', {}).get('allContests', [])
+                        print(f"  成功获取到 {len(contests)} 场比赛")
+                        return contests
+                    else:
+                        print(f"  GraphQL 错误: {data['errors']}")
+                else:
+                    print(f"  HTTP 错误: {response.status_code}")
+
+            except Exception as e:
+                print(f"  API {graphql_url} 失败: {e}")
+                continue
+
+        return []
+
+    def fetch_user_contests(self) -> List[Dict]:
+        """
+        获取用户参加过的比赛列表
+
+        通过检查用户是否提交过比赛的题目来判断用户是否参加了该比赛
+
+        Returns:
+            比赛列表
+        """
+        print("  正在获取用户参加的比赛列表...")
+
+        # 获取用户提交过的所有题目
+        submissions = self.fetch_submissions()
+        attempted_slugs = set()
+        for sub in submissions:
+            title_slug = sub.get('titleSlug')
+            if title_slug:
+                attempted_slugs.add(title_slug)
+
+        print(f"  用户已提交 {len(attempted_slugs)} 道题目")
+
+        # 获取所有比赛
+        all_contests = self.fetch_all_contests()
+
+        # 只检查最近的比赛（比如前150场），这样可以大幅减少请求次数
+        # 用户更可能参加最近的比赛
+        MAX_CONTESTS_TO_CHECK = 200
+        contests_to_check = all_contests[:MAX_CONTESTS_TO_CHECK]
+        print(f"  检查最近的 {len(contests_to_check)} 场比赛...")
+
+        # 检查每场比赛，看用户是否提交过该比赛的任何题目
+        user_contests = []
+        for i, contest in enumerate(contests_to_check):
+            contest_title_slug = contest.get('titleSlug', '')
+            if not contest_title_slug:
+                continue
+
+            # 获取比赛的题目列表
+            problems = self.fetch_contest_problems(contest_title_slug)
+
+            # 检查是否有任何题目被用户提交过
+            for problem in problems:
+                problem_slug = problem.get('titleSlug', '')
+                if problem_slug in attempted_slugs:
+                    user_contests.append(contest)
+                    break
+
+            # 每检查25场比赛输出一次进度
+            if (i + 1) % 25 == 0:
+                print(f"  已检查 {i + 1}/{len(contests_to_check)} 场比赛，找到 {len(user_contests)} 场用户参加的比赛")
+
+        print(f"  找到 {len(user_contests)} 场用户参加的比赛")
+        return user_contests
+
+    def _get_contests_from_submissions(self) -> List[Dict]:
+        """
+        从用户提交记录中提取比赛信息
+
+        Returns:
+            比赛列表
+        """
+        try:
+            # 获取所有提交记录
+            submissions = self._fetch_via_rest_api()
+
+            # 收集所有已尝试题目的 titleSlug
+            attempted_slugs = set()
+            for sub in submissions:
+                title_slug = sub.get('titleSlug')
+                if title_slug:
+                    attempted_slugs.add(title_slug)
+
+            # 获取所有题目的详细信息，看看哪些属于比赛
+            # 通过 REST API 获取所有题目
+            response = self.session.get("https://leetcode.cn/api/problems/all", timeout_seconds=15)
+            if response.status_code != 200:
+                print("  无法获取题目列表")
+                return []
+
+            data = response.json()
+            problems = data.get('stat_status_pairs', [])
+
+            # LeetCode 比赛题目通常有特定的模式
+            # 但 API 中没有直接的 contest 信息
+            # 我们需要通过其他方式获取比赛列表
+
+            # 尝试获取最近的比赛列表
+            contests = self.fetch_all_contests()
+
+            return contests
+
+        except Exception as e:
+            print(f"  从提交记录提取比赛信息失败: {e}")
+            return []
+
+    def fetch_contest_problems(self, contest_title_slug: str) -> List[Dict]:
+        """
+        获取指定比赛的题目列表
+
+        Args:
+            contest_title_slug: 比赛 titleSlug
+
+        Returns:
+            题目列表
+        """
+        # 使用 GraphQL contest 查询 - 单行格式
+        # 注意：ContestQuestionNode 没有 difficulty 字段
+        query = f'query getContestProblems($titleSlug: String!) {{ contest(titleSlug: $titleSlug) {{ title titleSlug questions {{ title titleSlug }} }} }}'
+
+        # 尝试多个 GraphQL 端点
+        graphql_urls = [
+            "https://leetcode.cn/graphql",
+            "https://leetcode.com/graphql",
+        ]
+
+        for graphql_url in graphql_urls:
+            try:
+                variables = {'titleSlug': contest_title_slug}
+                response = self.session.post(
+                    graphql_url,
+                    json={'query': query, 'variables': variables},
+                    timeout_seconds=15
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'errors' not in data:
+                        questions = data.get('data', {}).get('contest', {}).get('questions', [])
+                        return questions
+
+            except Exception as e:
+                continue
+
+        return []
+
+    def get_contest_unattempted_problems(self) -> List[Problem]:
+        """
+        获取用户参加过的比赛中未尝试的题目
+
+        Returns:
+            未尝试题目列表
+        """
+        print("  正在获取比赛未尝试的题目...")
+
+        # 获取用户的所有提交记录
+        submissions = self.fetch_submissions()
+
+        # 构建已尝试题目的集合 {title_slug}
+        attempted_problems = set()
+        for sub in submissions:
+            title_slug = sub.get('titleSlug')
+            if title_slug:
+                attempted_problems.add(title_slug)
+
+        print(f"  找到 {len(attempted_problems)} 道已尝试的题目")
+
+        # 获取用户参加的比赛列表
+        contests = self.fetch_user_contests()
+
+        if not contests:
+            print("  无法获取用户参加的比赛列表，无法筛选比赛未尝试题目")
+            return []
+
+        print(f"  找到 {len(contests)} 场用户参加的比赛")
+
+        # 获取每场比赛的题目，筛选出未尝试的
+        unattempted = []
+        seen_problems = set()  # 用于去重
+
+        for contest in contests:
+            contest_title_slug = contest.get('titleSlug', '')
+            if not contest_title_slug:
+                continue
+
+            # 获取比赛的题目列表
+            problems = self.fetch_contest_problems(contest_title_slug)
+
+            for problem in problems:
+                title_slug = problem.get('titleSlug', '')
+                if not title_slug:
+                    continue
+
+                # 如果这个题目没有被尝试过，且没有被添加过
+                if title_slug not in attempted_problems and title_slug not in seen_problems:
+                    title = problem.get('title', '')
+                    problem_obj = Problem(
+                        platform='leetcode',
+                        contest_id=contest_title_slug,
+                        problem_index=title_slug,  # 使用 titleSlug 作为 problem_index 以确保唯一性
+                        title=title,
+                        url=f"https://leetcode.cn/contests/{contest_title_slug}/problems/{title_slug}/"
+                    )
+                    unattempted.append(problem_obj)
+                    seen_problems.add(title_slug)
+
+        print(f"  找到 {len(unattempted)} 道比赛未尝试的题目")
+        return unattempted

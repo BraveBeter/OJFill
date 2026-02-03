@@ -7,14 +7,17 @@ platforms:
     enabled: true
     handle: "your_cf_username"  # 请填入您的Codeforces用户名
     include_gym: true  # 是否包含Gym题目
+    include_contest_unattempted: false  # 是否包含比赛中未尝试的题目（新功能）
 
   atcoder:
     enabled: true
     handle: "your_atcoder_username"  # 请填入您的AtCoder用户名
     contest_only: true  # 是否只爬取比赛题目
+    include_contest_unattempted: false  # 是否包含比赛中未尝试的题目（新功能）
 
   leetcode:
     enabled: true
+    include_contest_unattempted: false  # 是否包含比赛中未尝试的题目（新功能）
     # 请填入您的LeetCode cookies
     # 从浏览器开发者工具获取（F12 -> Application -> Cookies）
     cookies:

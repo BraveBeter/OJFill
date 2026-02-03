@@ -31,78 +31,73 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
 
     return config
 
-def crawl_codeforces(platforms_config:Dict) -> List[Problem]:
-    problems = []
-    # Codeforces
-    if platforms_config.get('codeforces', {}).get('enabled', False):
-        print("\n[Codeforces] 开始爬取...")
-        cf_config = platforms_config['codeforces']
-        handle = cf_config.get('handle', '').strip()
 
-        if not handle:
-            print("  警告: 未配置Codeforces用户名，跳过")
+def crawl_single_platform(platform:str, config: Dict) -> List[Problem]:
+    problems: List[Problem] = []
+
+    # 获取配置信息
+    handle = config.get('handle', '').strip()
+    cookies = config.get('cookies', {})
+
+    # 声明爬虫
+    global crawler
+    if not handle and not cookies:
+        print(f'Warning:⚠️[{platform}信息配置不全，已经跳过]')
+        return problems
+    elif not handle:
+        crawler = LeetCodeCrawler(cookies=cookies)
+    else:
+        if platform == 'codeforces':
+            crawler = CodeforcesCrawler(
+                handle=handle,
+                include_gym=config.get('include_gym', True)
+            )
         else:
-            try:
-                crawler = CodeforcesCrawler(
-                    handle=handle,
-                    include_gym=cf_config.get('include_gym', True)
-                )
-                problems = crawler.get_unsolved_problems()
-                print(f"  成功: 找到 {len(problems)} 道未解决题目")
-            except Exception as e:
-                print(f"  错误: {e}")
+            crawler = AtCoderCrawler(
+                handle=handle,
+                contest_only=config.get('contest_only', True)
+            )
+
+    print(f'[{platform}] 开始爬取：')
+    try:
+        # 获取未解决的题目（原有功能）
+        unsolved = crawler.get_unsolved_problems()
+        problems.extend(unsolved)
+        print(f"  成功: 找到 {len(unsolved)} 道未解决题目")
+
+        # 获取比赛未尝试的题目（新功能）
+        if config.get('include_contest_unattempted', False):
+            unattempted = crawler.get_contest_unattempted_problems()
+            problems.extend(unattempted)
+            print(f"  成功: 找到 {len(unattempted)} 道比赛未尝试题目")
+    except Exception as e:
+        print(f"  错误: {e}")
     return problems
 
-def crawl_atcoder(platforms_config:Dict) -> List[Problem]:
-    problems = []
-    # AtCoder
-    if platforms_config.get('atcoder', {}).get('enabled', False):
-        print("\n[AtCoder] 开始爬取...")
-        at_config = platforms_config['atcoder']
-        handle = at_config.get('handle', '').strip()
-
-        if not handle:
-            print("  警告: 未配置AtCoder用户名，跳过")
-        else:
-            try:
-                crawler = AtCoderCrawler(
-                    handle=handle,
-                    contest_only=at_config.get('contest_only', True)
-                )
-                problems = crawler.get_unsolved_problems()
-                print(f"  成功: 找到 {len(problems)} 道未解决题目")
-            except Exception as e:
-                print(f"  错误: {e}")
-    return problems
-
-def crawl_leetcode(platforms_config:Dict) -> List[Problem]:
-    problems = []
-    # LeetCode
-    if platforms_config.get('leetcode', {}).get('enabled', False):
-        print("\n[LeetCode] 开始爬取...")
-        lc_config = platforms_config['leetcode']
-        cookies = lc_config.get('cookies', {})
-
-        if not cookies:
-            print("  警告: 未配置LeetCode cookies，跳过")
-        else:
-            try:
-                crawler = LeetCodeCrawler(cookies=cookies)
-                problems = crawler.get_all_attempted_problems()
-                print(f"  成功: 找到 {len(problems)} 道未解决题目")
-            except Exception as e:
-                print(f"  错误: {e}")
-
-    return problems
 
 def crawl_all_problems(config: Dict) -> List[Problem]:
     """爬取所有平台的未解决题目"""
     all_problems = []
     platforms_config = config.get('platforms', {})
-    all_problems.extend(crawl_codeforces(platforms_config))
-    all_problems.extend(crawl_atcoder(platforms_config))
-    all_problems.extend(crawl_leetcode(platforms_config))
-    return all_problems
+
+    if platforms_config.get('codeforces', {}).get('enabled', False):
+        all_problems.extend(crawl_single_platform('codeforces', platforms_config['codeforces']))
+    if platforms_config.get('atcoder', {}).get('enabled', False):
+        all_problems.extend(crawl_single_platform('atcoder', platforms_config['atcoder']))
+    if platforms_config.get('leetcode', {}).get('enabled', False):
+        all_problems.extend(crawl_single_platform('leetcode', platforms_config['leetcode']))
+
+    # 去重（根据problem_id）
+    unique_problems = {}
+    for problem in all_problems:
+        if problem.problem_id not in unique_problems:
+            unique_problems[problem.problem_id] = problem
+
+    deduped_problems = list(unique_problems.values())
+    if len(all_problems) > len(deduped_problems):
+        print(f"\n[去重] 去重前: {len(all_problems)} 道, 去重后: {len(deduped_problems)} 道")
+
+    return deduped_problems
 
 
 def fetch_ratings(problems: List[Problem], config: Dict) -> None:
@@ -162,7 +157,7 @@ def export_results(problems: List[Problem], config: Dict) -> None:
 def main():
     """主函数"""
     print("=" * 60)
-    print("算法竞赛补题自动收集与排序系统")
+    print(" " * 10 + "算法竞赛补题自动收集与排序系统")
     print("=" * 60)
 
     # 加载配置
