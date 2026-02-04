@@ -443,9 +443,6 @@ class LeetCodeCrawler:
                 print("  无法获取题目列表")
                 return []
 
-            data = response.json()
-            problems = data.get('stat_status_pairs', [])
-
             # LeetCode 比赛题目通常有特定的模式
             # 但 API 中没有直接的 contest 信息
             # 我们需要通过其他方式获取比赛列表
@@ -554,7 +551,7 @@ class LeetCodeCrawler:
                         contest_id=contest_title_slug,
                         problem_index=title_slug,  # 使用 titleSlug 作为 problem_index 以确保唯一性
                         title=title,
-                        url=f"https://leetcode.cn/contests/{contest_title_slug}/problems/{title_slug}/"
+                        url=f"https://leetcode.cn/problems/{title_slug}/"
                     )
                     unattempted.append(problem_obj)
                     seen_problems.add(title_slug)
